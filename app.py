@@ -74,7 +74,7 @@ invoice_number = st.text_input("Invoice Number")
 invoice_date = st.date_input("Invoice Date")
 
 st.subheader("Invoice Items")
-items = st.experimental_data_editor(pd.DataFrame(columns=["Description", "Quantity", "Unit Price", "Total"]))
+items = st.data_editor(pd.DataFrame(columns=["Description", "Quantity", "Unit Price", "Total"]))
 
 if st.button("Generate Invoice PDF"):
     items["Quantity"] = items["Quantity"].astype(float)

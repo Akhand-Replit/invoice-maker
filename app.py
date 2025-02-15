@@ -28,7 +28,12 @@ invoice_date = st.date_input("Invoice Date")
 st.subheader("Invoice Items")
 
 # Editable DataFrame for items
-st.session_state.items = st.data_editor(st.session_state.items, num_rows="dynamic")
+edited_items = st.data_editor(st.session_state.items, num_rows="dynamic")
+
+# Update session state only if there are changes
+if edited_items is not None:
+    st.session_state.items = edited_items
+
 
 # Function to generate PDF
 def generate_pdf():

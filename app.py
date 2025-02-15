@@ -1,95 +1,75 @@
 import streamlit as st
 import pandas as pd
-from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
-# Function to generate PDF
-def generate_invoice_pdf(invoice_data, items):
-    buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
-    
-    # Title
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(200, height - 50, "Invoice")
-    
-    # Business details
-    c.setFont("Helvetica", 12)
-    c.drawString(50, height - 100, f"Business: {invoice_data['business_name']}")
-    c.drawString(50, height - 120, f"Address: {invoice_data['business_address']}")
-    c.drawString(50, height - 140, f"Email: {invoice_data['business_email']}")
-    
-    # Client details
-    c.drawString(50, height - 180, f"Bill To: {invoice_data['client_name']}")
-    c.drawString(50, height - 200, f"Client Address: {invoice_data['client_address']}")
-    c.drawString(50, height - 220, f"Client Email: {invoice_data['client_email']}")
-    
-    # Invoice details
-    c.drawString(400, height - 100, f"Invoice No: {invoice_data['invoice_number']}")
-    c.drawString(400, height - 120, f"Date: {invoice_data['invoice_date']}")
-    
-    # Table header
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, height - 260, "Description")
-    c.drawString(250, height - 260, "Quantity")
-    c.drawString(350, height - 260, "Unit Price")
-    c.drawString(450, height - 260, "Total")
-    
-    y = height - 280
-    c.setFont("Helvetica", 12)
-    total_amount = 0
-    for index, row in items.iterrows():
-        c.drawString(50, y, row["Description"])
-        c.drawString(250, y, str(row["Quantity"]))
-        c.drawString(350, y, f"${row["Unit Price"]:.2f}")
-        c.drawString(450, y, f"${row["Total"]:.2f}")
-        total_amount += row["Total"]
-        y -= 20
-    
-    # Total amount
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(350, y - 30, "Grand Total:")
-    c.drawString(450, y - 30, f"${total_amount:.2f}")
-    
-    c.showPage()
-    c.save()
-    buffer.seek(0)
-    return buffer
+# Initialize session state for invoice items
+if "items" not in st.session_state:
+    st.session_state.items = pd.DataFrame(columns=["Description", "Quantity", "Unit Price", "Total"])
 
-# Streamlit UI
 st.title("Invoice Generator")
 
-st.sidebar.header("Business Details")
-business_name = st.sidebar.text_input("Business Name")
-business_address = st.sidebar.text_area("Business Address")
-business_email = st.sidebar.text_input("Business Email")
+# Business Details
+st.sidebar.header("Business Address")
+business_address = st.sidebar.text_area("Business Address", "20/21, Garden Road, Karwan Bazar Lane, Tejgaon, Dhaka - 1215, Bangladesh")
+business_email = st.sidebar.text_input("Business Email", "akhand.law@gmail.com")
 
+# Client Details
 st.sidebar.header("Client Details")
 client_name = st.sidebar.text_input("Client Name")
 client_address = st.sidebar.text_area("Client Address")
 client_email = st.sidebar.text_input("Client Email")
 
-invoice_number = st.text_input("Invoice Number")
+# Invoice Details
+invoice_number = st.text_input("Invoice Number", "5524")
 invoice_date = st.date_input("Invoice Date")
 
+# Invoice Items
 st.subheader("Invoice Items")
-items = st.data_editor(pd.DataFrame(columns=["Description", "Quantity", "Unit Price", "Total"]))
 
-if st.button("Generate Invoice PDF"):
-    items["Quantity"] = items["Quantity"].astype(float)
-    items["Unit Price"] = items["Unit Price"].astype(float)
-    items["Total"] = items["Quantity"] * items["Unit Price"]
+# Editable DataFrame for items
+st.session_state.items = st.data_editor(st.session_state.items, num_rows="dynamic")
+
+# Function to generate PDF
+def generate_pdf():
+    if st.session_state.items.empty:
+        st.warning("Please add at least one item before generating the invoice!")
+        return
+
+    pdf_path = "invoice.pdf"
+    c = canvas.Canvas(pdf_path, pagesize=A4)
     
-    invoice_data = {
-        "business_name": business_name,
-        "business_address": business_address,
-        "business_email": business_email,
-        "client_name": client_name,
-        "client_address": client_address,
-        "client_email": client_email,
-        "invoice_number": invoice_number,
-        "invoice_date": invoice_date,
-    }
-    pdf_buffer = generate_invoice_pdf(invoice_data, items)
-    st.download_button("Download Invoice PDF", pdf_buffer, f"invoice_{invoice_number}.pdf", "application/pdf")
+    # Header
+    c.drawString(100, 800, f"Invoice No: {invoice_number}")
+    c.drawString(100, 780, f"Invoice Date: {invoice_date}")
+
+    # Business & Client Info
+    c.drawString(100, 750, f"Business: {business_address}")
+    c.drawString(100, 730, f"Client: {client_name}")
+    c.drawString(100, 710, f"Address: {client_address}")
+
+    # Table Header
+    y_position = 680
+    c.drawString(100, y_position, "Description")
+    c.drawString(300, y_position, "Quantity")
+    c.drawString(400, y_position, "Unit Price")
+    c.drawString(500, y_position, "Total")
+
+    # Invoice Items
+    for _, row in st.session_state.items.iterrows():
+        y_position -= 20
+        c.drawString(100, y_position, str(row["Description"]))
+        c.drawString(300, y_position, str(row["Quantity"]))
+        c.drawString(400, y_position, str(row["Unit Price"]))
+        c.drawString(500, y_position, str(row["Total"]))
+
+    c.save()
+    st.success("Invoice PDF generated successfully!")
+
+# Button to generate PDF
+if st.button("Generate Invoice PDF"):
+    generate_pdf()
+
+# Button to download PDF
+with open("invoice.pdf", "rb") as pdf_file:
+    st.download_button("Download Invoice PDF", pdf_file, file_name="invoice.pdf", mime="application/pdf")
